@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd">
+	<file:config name="File_Config" doc:name="File Config" doc:id="b2209c7e-31aa-40b4-86f2-80916a078cbb" />
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="0f07cc39-4b5e-44ba-acde-28fb802696a8" >
+		<db:my-sql-connection port="3306" user="admin" password="murali670" database="customer_db" host="database-1.cwqcnhhy2wql.us-east-1.rds.amazonaws.com"/>
+	</db:config>
+	<db:config name="Database_Config1" doc:name="Database Config" doc:id="62dfa449-7ff2-4671-8bac-d67a40b022a9" >
+		<db:my-sql-connection host="database-1.cwqcnhhy2wql.us-east-1.rds.amazonaws.com" port="3306" user="admin" password="murali670" database="customer_db" />
+	</db:config>
+	<file:config name="File_Config1" doc:name="File Config" doc:id="cc1bd59e-2a5c-4c56-8db9-864baf82e62c" />
+	<flow name="excel-data-read-insert-dbFlow" doc:id="652b0f5c-aadc-4dc4-b2c0-dc876f2789dd" >
+		<http:listener doc:name="Listener" doc:id="d3bc4bb3-a9c5-4557-8f7d-0a2496cd081d" config-ref="HTTP_Listener_config" path="/read"/>
+		<file:read doc:id="0444b26f-37f6-4d65-8d32-98546aaeb0b6" config-ref="File_Config" path="C:\Users\Murali Vikas\Documents\Mulesoft\Mule CSV\random data.csv"/>
+		<ee:transform doc:name="Transform Message" doc:id="b1066689-1ddf-46db-85bf-3438748208b5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<batch:job jobName="excel-data-read-insert-dbBatch_Job" doc:id="96f06068-4905-4b23-92b5-8d7f02d109d2" >
+			<batch:process-records >
+				<batch:step name="Batch_Step" doc:id="b1f315e2-ecf2-46cd-a9b8-82f32b8ecbf2" >
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="ad982f0f-1147-43e5-b209-61eb66fe8957" size="5">
+						<db:bulk-insert doc:name="Bulk insert" doc:id="da44c058-d263-4907-ad6f-c0f72d098ca6" config-ref="Database_Config1">
+							<db:sql ><![CDATA[insert into customer_db(id,name,address,telephone,email) values(:id,:name,:address,:telephone,:email)]]></db:sql>
+						</db:bulk-insert>
+					</batch:aggregator>
+				</batch:step>
+				<batch:step name="write" doc:id="b83a1069-cbf0-4119-963a-d580a7600407" >
+					<batch:aggregator doc:name="Batch Aggregator" doc:id="3c766186-07ad-48f0-bcd8-fd37169c0ee7" size="5">
+						<ee:transform doc:name="Transform Message" doc:id="e0891457-674c-4192-9f90-faec35cb265f" >
+							<ee:message >
+								<ee:set-payload ><![CDATA[%dw 2.0
+output application/csv
+---
+payload]]></ee:set-payload>
+							</ee:message>
+						</ee:transform>
+						<file:write doc:name="Write" doc:id="acfc9b13-6eb1-4c9e-9bd2-7957b6269b71" config-ref="File_Config1" path="C:\Users\Murali Vikas\Documents\Mulesoft\Mule CSV\afterwrite.csv" mode="APPEND"/>
+					</batch:aggregator>
+				</batch:step>
+			</batch:process-records>
+			<batch:on-complete >
+				<logger level="INFO" doc:name="Logger" doc:id="ba7e5b0b-d0d3-4dac-99fc-521308dd1382" message="#[output application/json --- payload]"/>
+			</batch:on-complete>
+		</batch:job>
+		<ee:transform doc:name="Transform Message" doc:id="7fea83eb-b2fa-4524-8f2d-832c3554d420" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	"status" : "executing batch job", 
+	"message" : "data fetched from the server and started inserting into the data base"
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
